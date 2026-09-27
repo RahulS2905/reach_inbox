@@ -210,5 +210,6 @@ export interface SenderDTO {
   smtpUser: string;
   maxEmailsPerHour: number;
   minSendIntervalMs: number;
+  isTestSender: boolean;
   createdAt: string;
 }
