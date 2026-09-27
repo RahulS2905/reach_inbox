@@ -8,6 +8,7 @@ import { processEmailSend } from "./processors/emailSendProcessor";
 import { sweepScheduleOutbox } from "./outboxSweep";
 import { relayPendingIndexEvents } from "./search/relayIndexEvents";
 import { ensureEmailIndex } from "./search/ensureIndex";
+import { checkCampaignCompletionAndNotify } from "./slack/campaignNotifier";
 
 async function main() {
   await ensureEmailIndex().catch((err) => logger.warn({ err }, "ES index init failed at worker boot"));
@@ -35,6 +36,8 @@ async function main() {
             message: `Email sent to ${jobData.recipient}`,
           }
         });
+        // Check if entire campaign is now done and notify Slack
+        checkCampaignCompletionAndNotify(prisma, jobData.campaignId, jobData.tenantId).catch(() => undefined);
       }
     } catch (err) {
       logger.error({ err }, "Failed to log completed campaign event");
@@ -67,6 +70,9 @@ async function main() {
             message: `Email failed to send to ${updated.recipient}: ${err.message || err}`,
           }
         }).catch(() => undefined);
+
+        // Check if entire campaign is now done and notify Slack
+        checkCampaignCompletionAndNotify(prisma, updated.campaignId, updated.tenantId).catch(() => undefined);
       }
     }
   });

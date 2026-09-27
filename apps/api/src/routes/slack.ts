@@ -82,7 +82,7 @@ slackRouter.get("/oauth/callback", async (req, res, next) => {
       });
     }
 
-    res.redirect(`${env.APP_BASE_URL}/settings?slack=connected`);
+    res.redirect(`${env.APP_BASE_URL}/dashboard/integrations?slack=connected`);
   } catch (err) {
     next(err);
   }
