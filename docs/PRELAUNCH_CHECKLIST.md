@@ -1,0 +1,22 @@
+# Pre-Launch Checklist
+
+- [ ] 1. Privacy Policy published with accurate disclosures
+- [ ] 2. Terms of Service published and reviewed
+- [ ] 3. No frontend-exposed secrets
+- [ ] 4. HTTPS enforced in production
+- [ ] 5. Cookie consent (only if applicable)
+- [ ] 6. Page titles and meta descriptions
+- [ ] 7. Social sharing / Open Graph metadata
+- [ ] 8. Favicon and app icons
+- [ ] 9. robots.txt and sitemap
+- [ ] 10. Image alt text
+- [ ] 11. Image and static asset optimization
+- [ ] 12. Page performance checked
+- [ ] 13. Adequate contrast for text/interactive elements
+- [ ] 14. Mobile and tablet layouts tested
+- [ ] 15. Custom 404 and error pages
+- [ ] 16. Internal links verified
+- [ ] 17. Client-side and server-side form validation
+- [ ] 18. Spam/bot protection
+- [ ] 19. Privacy-conscious analytics (optional)
+- [ ] 20. Primary CTAs are clear and functional

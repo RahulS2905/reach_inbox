@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy / Auth
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users             User[]
+  senderAccounts    SenderAccount[]
+  campaigns         Campaign[]
+  slackConnections  SlackConnection[]
+  idempotencyKeys   IdempotencyKey[]
+  outboxEvents      OutboxEvent[]
+  notificationLogs  NotificationLog[]
+}
+
+model User {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  googleId   String   @unique
+  email      String   @unique
+  name       String
+  avatarUrl  String?
+  createdAt  DateTime @default(now())
+  lastLoginAt DateTime?
+
+  sessions Session[]
+
+  @@index([tenantId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Senders / Campaigns / Email Jobs
+// ---------------------------------------------------------------------------
+
+model SenderAccount {
+  id                String   @id @default(cuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  label             String
+  smtpHost          String
+  smtpPort          Int
+  smtpUser          String
+  // AES-256-GCM encrypted with TOKEN_ENCRYPTION_KEY; never sent to frontend
+  smtpPassEncrypted String
+  maxEmailsPerHour  Int      @default(200)
+  minSendIntervalMs Int      @default(2000)
+  createdAt         DateTime @default(now())
+
+  campaigns Campaign[]
+  emailJobs EmailJob[]
+
+  @@index([tenantId])
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model Campaign {
+  id              String         @id @default(cuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  senderAccountId String
+  senderAccount   SenderAccount  @relation(fields: [senderAccountId], references: [id])
+  name            String
+  subject         String
+  body            String         @db.Text
+  startTime       DateTime
+  delayMs         Int            @default(2000)
+  hourlyLimit     Int            @default(200)
+  status          CampaignStatus @default(DRAFT)
+  totalRecipients Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  emailJobs      EmailJob[]
+  campaignEvents CampaignEvent[]
+
+  @@index([tenantId, status])
+}
+
+model CampaignEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id])
+  emailJobId  String?
+  eventType   String   // e.g. "scheduled", "queued", "sent", "failed", "deferred", "cancelled", "retried", "rescheduled"
+  message     String
+  metadata    Json?    @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([campaignId, createdAt])
+  @@index([tenantId, createdAt])
+}
+
+enum EmailJobStatus {
+  PENDING      // row created, not yet handed to the queue (outbox not yet processed)
+  QUEUED       // outbox processed, BullMQ job enqueued with a stable jobId
+  RESERVED     // worker picked it up, holds a send-slot reservation
+  SENDING      // actively calling SMTP
+  SENT
+  FAILED
+  RESCHEDULED  // hourly quota hit; requeued into a later window
+  CANCELLED
+}
+
+model EmailJob {
+  id              String         @id @default(cuid())
+  tenantId        String
+  campaignId      String
+  campaign        Campaign       @relation(fields: [campaignId], references: [id])
+  senderAccountId String
+  senderAccount   SenderAccount  @relation(fields: [senderAccountId], references: [id])
+
+  recipient       String
+  subject         String
+  body            String         @db.Text
+
+  scheduledFor    DateTime
+  status          EmailJobStatus @default(PENDING)
+  attemptCount    Int            @default(0)
+  lastError       String?
+
+  providerMessageId String?
+  previewUrl        String?
+  sentAt            DateTime?
+
+  // BullMQ job id = this row's id, guaranteeing idempotent enqueue/replace
+  bullJobId       String?        @unique
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([tenantId, status])
+  @@index([campaignId])
+  @@index([senderAccountId, status])
+  @@index([recipient])
+}
+
+// ---------------------------------------------------------------------------
+// Idempotency (API-level, e.g. duplicate POST /emails/schedule retries)
+// ---------------------------------------------------------------------------
+
+model IdempotencyKey {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  key          String
+  requestHash  String
+  responseBody Json?
+  createdAt    DateTime @default(now())
+
+  @@unique([tenantId, key])
+}
+
+// ---------------------------------------------------------------------------
+// Transactional outbox: DB commit -> reliable handoff to BullMQ
+// ---------------------------------------------------------------------------
+
+enum OutboxStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model OutboxEvent {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  eventType    String       // e.g. "email_job.schedule"
+  payload      Json
+  status       OutboxStatus @default(PENDING)
+  attempts     Int          @default(0)
+  lastError    String?
+  createdAt    DateTime     @default(now())
+  processedAt  DateTime?
+
+  @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Slack OAuth + notification dedup
+// ---------------------------------------------------------------------------
+
+model SlackConnection {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  teamId             String
+  teamName           String
+  // encrypted with TOKEN_ENCRYPTION_KEY
+  accessTokenEncrypted String
+  botUserId          String
+  channelId          String?
+  channelName        String?
+  connectedByUserId  String
+  createdAt          DateTime @default(now())
+  disconnectedAt     DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, teamId])
+}
+
+model NotificationLog {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  kind          String   // e.g. "rate_limit_hit"
+  dedupeKey     String   // e.g. `${senderId}:${hourWindow}`
+  senderAccountId String
+  createdAt     DateTime @default(now())
+
+  @@unique([tenantId, dedupeKey])
+}

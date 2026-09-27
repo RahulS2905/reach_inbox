@@ -1,0 +1,13 @@
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+COPY apps/web/package*.json ./apps/web/
+COPY packages/shared/package*.json ./packages/shared/
+RUN npm ci --workspace=apps/web --workspace=packages/shared --include-workspace-root
+COPY . .
+RUN npm run build -w apps/web
+
+FROM nginx:alpine
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

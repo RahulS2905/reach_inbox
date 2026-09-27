@@ -1,0 +1,20 @@
+{
+  "name": "reachinbox-scheduler",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:worker": "npm run dev --workspace apps/worker",
+    "dev:web": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "prisma:migrate": "npm run prisma:migrate --workspace apps/api",
+    "prisma:generate": "npm run prisma:generate --workspace apps/api"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
