@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "ethereal:create-account": "tsx src/scripts/createEtherealAccount.ts"
   },
   "dependencies": {

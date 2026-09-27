@@ -11,6 +11,8 @@
     "dev:web": "npm run dev --workspace apps/web",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run typecheck --workspaces --if-present",
     "prisma:migrate": "npm run prisma:migrate --workspace apps/api",
     "prisma:generate": "npm run prisma:generate --workspace apps/api"
   },

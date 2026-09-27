@@ -52,7 +52,7 @@ export async function processEmailSend(job: Job<EmailJobPayload>, token?: string
       data: { status: "RESCHEDULED", scheduledFor: new Date(reservation.retryAt) },
     });
 
-    if (reservation.reason === "quota") {
+    if (reservation.reason === "quota" || reservation.reason === "global_quota") {
       const windowStart = reservation.retryAt - HOUR_MS;
       notifyRateLimitHit(prisma, current.tenantId, sender.id, sender.label, windowStart).catch((err) =>
         logger.warn({ err }, "Rate-limit Slack notification failed (non-fatal)"),
