@@ -13,7 +13,7 @@ export const slackRouter = Router();
 slackRouter.use(requireAuth);
 
 const STATE_COOKIE = "rib_slack_state";
-const SLACK_SCOPES = ["chat:write", "channels:read", "groups:read"].join(",");
+const SLACK_SCOPES = ["chat:write", "chat:write.public", "channels:read", "groups:read"].join(",");
 
 slackRouter.get("/oauth/authorize", (req, res) => {
   const state = crypto.randomBytes(24).toString("hex");

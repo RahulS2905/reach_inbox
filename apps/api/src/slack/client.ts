@@ -53,6 +53,22 @@ export async function listSlackChannels(botToken: string) {
   return json.channels as Array<{ id: string; name: string }>;
 }
 
+export async function joinSlackChannel(botToken: string, channelId: string) {
+  try {
+    await callSlack("conversations.join", botToken, { channel: channelId });
+  } catch {
+    // Ignore join errors (e.g. if already joined or private channel)
+  }
+}
+
 export async function postSlackMessage(botToken: string, channelId: string, text: string) {
-  return callSlack("chat.postMessage", botToken, { channel: channelId, text });
+  try {
+    return await callSlack("chat.postMessage", botToken, { channel: channelId, text });
+  } catch (err) {
+    if ((err as Error).message.includes("not_in_channel")) {
+      await joinSlackChannel(botToken, channelId);
+      return await callSlack("chat.postMessage", botToken, { channel: channelId, text });
+    }
+    throw err;
+  }
 }
