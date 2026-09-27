@@ -69,6 +69,7 @@ export async function reserveSendSlot(
     minSendIntervalMs: number;
     maxEmailsPerHour: number;
     globalMaxEmailsPerHour?: number;
+    keyPrefix?: string;
   },
 ): Promise<ReservationResult> {
   const now = Date.now();
@@ -76,9 +77,10 @@ export async function reserveSendSlot(
   const windowStart = Math.floor(now / windowMs) * windowMs;
   const windowEnd = windowStart + windowMs;
 
-  const lastKey = `sender:${senderAccountId}:last`;
-  const senderHourKey = `sender:${senderAccountId}:hour:${windowStart}`;
-  const globalHourKey = `global:hour:${windowStart}`;
+  const keyPrefix = opts.keyPrefix ?? "";
+  const lastKey = `${keyPrefix}sender:${senderAccountId}:last`;
+  const senderHourKey = `${keyPrefix}sender:${senderAccountId}:hour:${windowStart}`;
+  const globalHourKey = `${keyPrefix}global:hour:${windowStart}`;
 
   const globalLimit = opts.globalMaxEmailsPerHour ?? env.GLOBAL_MAX_EMAILS_PER_HOUR;
 

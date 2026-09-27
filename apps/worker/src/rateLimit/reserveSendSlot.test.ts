@@ -32,6 +32,8 @@ describe("reserveSendSlot (atomic Redis rate limiter)", () => {
       return;
     }
 
+    const keyPrefix = `test:${Date.now()}:${Math.random()}:`;
+
     const senderId = `test-sender-${Date.now()}`;
     const limit = 5;
     const concurrency = 50;
@@ -42,6 +44,7 @@ describe("reserveSendSlot (atomic Redis rate limiter)", () => {
           minSendIntervalMs: 0,
           maxEmailsPerHour: limit,
           globalMaxEmailsPerHour: 10000,
+          keyPrefix,
         }),
       ),
     );
@@ -55,12 +58,13 @@ describe("reserveSendSlot (atomic Redis rate limiter)", () => {
       expect(d.retryAt).toBeGreaterThan(Date.now());
     }
   });
-
   it("enforces global hourly limit across multiple different senders", async () => {
     if (!isRedisAvailable) {
       expect(isRedisAvailable).toBe(false);
       return;
     }
+
+    const keyPrefix = `test:${Date.now()}:${Math.random()}:`;
 
     const globalLimit = 4;
     const concurrency = 20;
@@ -71,6 +75,7 @@ describe("reserveSendSlot (atomic Redis rate limiter)", () => {
           minSendIntervalMs: 0,
           maxEmailsPerHour: 100,
           globalMaxEmailsPerHour: globalLimit,
+          keyPrefix,
         }),
       ),
     );
@@ -84,12 +89,13 @@ describe("reserveSendSlot (atomic Redis rate limiter)", () => {
       expect(d.retryAt).toBeGreaterThan(Date.now());
     }
   });
-
   it("enforces the minimum interval between sends for the same sender", async () => {
     if (!isRedisAvailable) {
       expect(isRedisAvailable).toBe(false);
       return;
     }
+
+    const keyPrefix = `test:${Date.now()}:${Math.random()}:`;
 
     const senderId = `test-sender-interval-${Date.now()}`;
     const minInterval = 200;
@@ -98,6 +104,7 @@ describe("reserveSendSlot (atomic Redis rate limiter)", () => {
       minSendIntervalMs: minInterval,
       maxEmailsPerHour: 1000,
       globalMaxEmailsPerHour: 10000,
+      keyPrefix,
     });
     expect(first.allowed).toBe(true);
 
@@ -105,6 +112,7 @@ describe("reserveSendSlot (atomic Redis rate limiter)", () => {
       minSendIntervalMs: minInterval,
       maxEmailsPerHour: 1000,
       globalMaxEmailsPerHour: 10000,
+      keyPrefix,
     });
     expect(second.allowed).toBe(false);
     expect(second.reason).toBe("interval");
@@ -116,6 +124,7 @@ describe("reserveSendSlot (atomic Redis rate limiter)", () => {
       minSendIntervalMs: minInterval,
       maxEmailsPerHour: 1000,
       globalMaxEmailsPerHour: 10000,
+      keyPrefix,
     });
     expect(third.allowed).toBe(true);
   });
